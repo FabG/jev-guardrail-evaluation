@@ -2,6 +2,8 @@
 
 This repository explores TypeSafe AI's Jev as a fast evaluation layer for prompt-injection defense and other safety checks. The focus is whether a decision model can make useful, bounded judgments quickly enough to sit inline in an application request path, with a target of **under 200 ms**.
 
+The repository is a hands-on learning path: begin with one small, reproducible prompt-injection run, inspect what the score means, then add datasets, comparisons, and production-shaped measurements. Evaluation results are not a security guarantee; validate any policy on representative data before using it to block real traffic.
+
 Jev is a decision model from TypeSafe AI. Instead of generating free-form text, it evaluates a supplied state against typed questions and returns structured answers, such as a yes/no probability, a choice, or a score. An application can use those answers to allow, block, review, route, or escalate a request. This makes Jev a natural candidate for checks that are well-defined and do not require multi-step investigation or a written explanation.
 
 ## Why Low-Latency Guardrails Matter
@@ -43,6 +45,48 @@ This project is intended to assess Jev as a low-latency evaluator across:
 - Detection quality, false-block rates, threshold behavior, repeatability, and performance across input types.
 
 Results should record the model build and evaluation configuration, and distinguish measurements on a benchmark from claims about production traffic. The goal is to identify where Jev is useful, where it is not, and when a slower or human review path is warranted.
+
+## Start Here
+
+### Requirements
+
+- Python 3.13
+- [`uv`](https://docs.astral.sh/uv/)
+- A TypeSafe API key for live Jev calls. The offline smoke check does not need a key.
+
+### Set Up
+
+```bash
+uv sync
+uv run jev-eval smoke
+```
+
+For live calls, copy `.env.example` to `.env`, add your key, and run a small pilot:
+
+```bash
+cp .env.example .env
+# Edit .env and set TYPESAFE_API_KEY
+uv run --env-file .env jev-eval run --limit 8
+```
+
+The first live run downloads the pinned Hugging Face test split and makes one Jev request per sampled row. It writes metadata-only predictions and a summary under `results/runs/deepset-pilot/`. Each prediction includes a source-row ID and content hash, but not the prompt text. A rerun reuses matching cached responses. Review API usage and current dataset/model terms before running larger samples.
+
+### Lessons
+
+| Lesson | What you will do | What you will learn |
+| --- | --- | --- |
+| [00: A decision, not a completion](notebooks/00_jev_first_decision.ipynb) | Run the offline smoke check, then score two hand-written examples with Jev | Noul scores, model IDs, and the difference between model output and application policy |
+| [01: Hugging Face + Jev](notebooks/01_huggingface_jev.ipynb) | Load a pinned `deepset/prompt-injections` split and score a deterministic pilot | Dataset schemas, labels, source IDs, cache behavior, and baseline metrics |
+| [02: Thresholds and uncertainty](notebooks/02_thresholds.ipynb) | Sweep thresholds on a calibration split and evaluate once on held-out data | Recall versus false blocks, confidence intervals, and why thresholds do not transfer automatically |
+| [03: Benign lookalikes](notebooks/03_benign_lookalikes.ipynb) | Add NotInject and inspect false positives on benign text containing trigger words | Over-defense and dataset-specific failure modes |
+| [04: Documents and robustness](notebooks/04_documents_robustness.ipynb) | Add indirect injection, then language/obfuscation/length slices | Why content type and attack distribution change results |
+| [05: Compare guardrails](notebooks/05_compare_guardrails.ipynb) | Add local and hosted baselines with identical inputs | Fair comparisons, cost, provider-call latency, and model/version provenance |
+| [06: Production-shaped evaluation](notebooks/06_production_measurements.ipynb) | Add shadow-mode policy integration and end-to-end/load measurements | Timeouts, explicit error policy, safe logs, and the difference between provider and application latency |
+| [07: Publish a benchmark](notebooks/07_publish_benchmark.ipynb) | Regenerate a versioned report and benchmark card from a run manifest | Reproducibility, licensing, caveats, and safe publication |
+
+Each lesson should be runnable on a small sample before expanding. The first target is **provider-call p95 under 200 ms**; it excludes dataset loading and local post-processing. The repository will add end-to-end p50/p95/p99 measurements as a later integration exercise.
+
+The `deepset/prompt-injections` Hugging Face card currently shows `text` and `label` fields and 662 rows across `train` and `test`, with an Apache-2.0 Hub tag but a conflicting CC-BY-4.0 value in embedded dataset metadata. This starter pins the Hub revision and does not redistribute prompt text. Recheck the dataset card and underlying source terms before publishing derived data or a benchmark release.
 
 ## References
 
